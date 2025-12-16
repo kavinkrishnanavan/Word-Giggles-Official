@@ -173,7 +173,7 @@ Joke:"""
                     st.markdown(
                         f"""
 ```text
-{formatted_joke..replace('*','')}
+{formatted_joke.replace('*','')}
 """
                 )
 
@@ -190,6 +190,7 @@ Joke:"""
                 # Handle API errors gracefully
 
                 st.error(f"An error occurred during AI generation! Error: {e}")
+
 
 
 
