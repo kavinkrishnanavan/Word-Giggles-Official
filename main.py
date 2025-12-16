@@ -164,8 +164,8 @@ Joke:"""
                 # --- 4. Display the response using the Output Columns ---
                 
                 with col_joke_output:
-                    st.subheader(f"✨ Word: {new_word.capitalize()}")
-                    st.markdown(f"**Meaning:** {meaning}")
+                    st.subheader(f"✨ Word: {new_word.capitalize().replace('*','')}")
+                    st.markdown(f"**Meaning:**  {meaning}")
                     st.markdown("---")
                     st.markdown("**Your Learning Joke:**")
                     # Display the joke using st.markdown with fenced code block (no copy button)
@@ -189,6 +189,7 @@ Joke:"""
                 # Handle API errors gracefully
 
                 st.error(f"An error occurred during AI generation! Error: {e}")
+
 
 
 
