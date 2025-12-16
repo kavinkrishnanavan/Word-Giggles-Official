@@ -1,9 +1,15 @@
 import streamlit as st
+from PIL import Image
 from openai import OpenAI
 import requests
 import re 
 
-# --- Configuration & Client Initialization ---
+im = Image.open("logo.png")
+st.set_page_config(
+    page_title="Word Giggles",
+    page_icon=im,
+    layout="wide",
+)
 try:
     # Initialize the client for Groq API using OpenAI SDK interface
     # Ensure you have st.secrets["GROQ"] configured with your Groq API key
@@ -180,4 +186,5 @@ Joke:"""
 
             except Exception as e:
                 # Handle API errors gracefully
+
                 st.error(f"An error occurred during AI generation! Error: {e}")
