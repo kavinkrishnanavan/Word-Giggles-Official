@@ -133,6 +133,7 @@ Meaning in one simple sentence
 No asterisks (*) in the answer allowed
 Please follow the instructions exactly
 The word is {word_input}.
+Block any bad words immediately
 
 Output format:
 
@@ -191,6 +192,7 @@ Joke:"""
                 # Handle API errors gracefully
 
                 st.error(f"An error occurred during AI generation! Error: {e}")
+
 
 
 
