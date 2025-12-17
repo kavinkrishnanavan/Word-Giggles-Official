@@ -3,6 +3,7 @@ from PIL import Image
 from openai import OpenAI
 import requests
 import re
+import base64
 
 # --- Page setup ---
 im = Image.open("logo.png")
@@ -11,6 +12,8 @@ st.set_page_config(
     page_icon=im,
     layout="wide",
 )
+logo_bytes = open("logo.png", "rb").read()
+logo_base64 = base64.b64encode(logo_bytes).decode()
 
 # --- Initialize Groq API Client ---
 try:
@@ -64,10 +67,27 @@ def parse_and_format_response(full_response_text):
 
 logo, title = st.columns([1,10])
 with logo:
-    im = im.resize((90, int(90 * im.height / im.width)), Image.LANCZOS)
-    st.image(im , width=120)
+    st.markdown("""
+<style>
+.header-logo {
+    border-radius: 15px;
+    
+    transition: transform 0.3s ease;
+}
+.header-logo:hover {
+    transform: scale(1.05);
+}
+
+</style>
+""", unsafe_allow_html=True)
+    st.markdown(f"""
+<div class="main-header">
+    <img src="data:image/png;base64,{logo_base64}" class="header-logo" width="120" height="120">
+</div>
+""", unsafe_allow_html=True)
 
 with title:
+    st.markdown("<br>" ,unsafe_allow_html=True)
     st.title("Word Giggles 🔤 🤭")
 st.markdown("Enter a word and we will generate a funny and catchy joke for children to easily remember the word!")
 
@@ -111,10 +131,11 @@ Clearly highlight or repeat the new English word in a natural way
 Keep the humor friendly and age-appropriate
 Meaning in one simple sentence
 No asterisks (*) in the answer allowed
-Please follow the instructions exactly
+Split it into short lines for better readability
 The word is {word_input}.
 Block any bad or inappropriate words immediately
 No parentheses allowed
+Please follow the instructions exactly
 Output format:
 
 New Word: {word_input}
@@ -146,7 +167,7 @@ Joke:"""
                 st.markdown(f"**Meaning:** {meaning.replace('*','')}")
                 st.markdown("---")
                 st.markdown("**Your Learning Joke:**")
-                st.markdown(f"```text\n{formatted_joke.replace('*','')}```")
+                st.markdown(f"```text\n{formatted_joke.replace('*','')}")
             with col_spacer:
                 gif_url = fetch_gif(new_word)
                 if gif_url:
