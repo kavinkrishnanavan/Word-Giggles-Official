@@ -179,7 +179,7 @@ Joke:"""
         st.markdown(f"**Meaning:** {meaning}")
         st.markdown("---")
         st.markdown("**Your Learning Joke:**")
-        st.markdown(f"```text\n{joke}\n```")
+        st.markdown(f"```text\n{joke}   ")
 
         gif_url = fetch_gif(new_word)
         if gif_url:
