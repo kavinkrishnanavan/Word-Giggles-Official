@@ -131,7 +131,6 @@ Clearly highlight or repeat the new English word in a natural way
 Keep the humor friendly and age-appropriate
 Meaning in one simple sentence
 No asterisks (*) in the answer allowed
-Split it into short lines for better readability
 The word is {word_input}.
 Block any bad or inappropriate words immediately
 No parentheses allowed
@@ -185,4 +184,5 @@ Joke:"""
                     )
                 else:
                     st.info(f"Sorry, no GIF found for '{new_word}'.")
+
 
