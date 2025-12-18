@@ -108,7 +108,7 @@ with input_container:
             )
         with two:
             
-            st.button("Generate", key="generate_joke_button", on_click=lambda: generate_joke())
+            st.button("Make", key="generate_joke_button", on_click=lambda: generate_joke())
 
 # --- Output container (reserved below input) ---
 output_container = st.container()
@@ -185,3 +185,4 @@ Joke:"""
                     )
                 else:
                     st.info(f"Sorry, no GIF found for '{new_word}'.")
+
