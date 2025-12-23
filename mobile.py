@@ -155,7 +155,7 @@ def generate_joke(source=None):
             try:
                 response = client.responses.create(
                     model="openai/gpt-oss-120b",
-                    input=prompt := f"""You are a creative children's joke writer.
+                    input= f"""You are a creative children's joke writer.
 Create one simple, short, and funny joke that helps children learn a new English word.
 
 Requirements:
