@@ -120,7 +120,11 @@ st.text_input(
     on_change=lambda: generate_joke()
 )
 
-st.button("Make", on_click=lambda: generate_joke())
+col1, col2, col3 = st.columns([1, 2, 1])
+
+with col2:
+    st.button("Make", on_click=generate_joke, use_container_width=True)
+
 
 st.markdown("---")
 
