@@ -5,7 +5,7 @@ import requests
 import re
 import base64
 
-# ================== SESSION STATE LOCKS ==================
+# ================== SESSION STATE ==================
 if "is_generating" not in st.session_state:
     st.session_state.is_generating = False
 
@@ -24,29 +24,22 @@ logo_bytes = open("logo.png", "rb").read()
 logo_base64 = base64.b64encode(logo_bytes).decode()
 
 # ================== INIT GROQ CLIENT ==================
-try:
-    client = OpenAI(
-        api_key=st.secrets["GROQ"],
-        base_url="https://api.groq.com/openai/v1"
-    )
-except Exception as e:
-    st.error(f"Error initializing AI Client: {e}")
-    st.stop()
+client = OpenAI(
+    api_key=st.secrets["GROQ"],
+    base_url="https://api.groq.com/openai/v1"
+)
 
-# ================== GIPHY FUNCTION ==================
+# ================== GIPHY ==================
 def fetch_gif(word):
-    if word == "N/A":
-        return None
-
-    GIPHY_API_KEY = st.secrets.get("GIPHY", "YOUR_GIPHY_API_KEY")
-    if GIPHY_API_KEY == "YOUR_GIPHY_API_KEY":
+    key = st.secrets.get("GIPHY")
+    if not key:
         return None
 
     try:
         r = requests.get(
             "https://api.giphy.com/v1/gifs/search",
             params={
-                "api_key": GIPHY_API_KEY,
+                "api_key": key,
                 "q": word,
                 "limit": 1,
                 "rating": "g"
@@ -62,29 +55,28 @@ def fetch_gif(word):
 
     return None
 
-# ================== RESPONSE PARSER ==================
+# ================== PARSER ==================
 def parse_and_format_response(text):
-    joke_match = re.search(r"Joke:\s*(.*)", text, re.DOTALL)
-    word_match = re.search(r"New Word:\s*(.*)", text)
-    meaning_match = re.search(r"Meaning:\s*(.*)", text)
+    joke = re.search(r"Joke:\s*(.*)", text, re.DOTALL)
+    word = re.search(r"New Word:\s*(.*)", text)
+    meaning = re.search(r"Meaning:\s*(.*)", text)
 
-    if not joke_match:
-        return text, "N/A", "N/A"
+    if not joke:
+        return None, None, None
 
-    joke_raw = joke_match.group(1).strip()
-    parts = [s for s in re.split(r'([.!?])', joke_raw) if s.strip()]
-
-    formatted = ""
-    for i in range(0, len(parts), 2):
-        formatted += parts[i] + (parts[i + 1] if i + 1 < len(parts) else "") + "\n"
+    parts = [s for s in re.split(r'([.!?])', joke.group(1)) if s.strip()]
+    formatted = "".join(
+        parts[i] + (parts[i + 1] if i + 1 < len(parts) else "") + "\n"
+        for i in range(0, len(parts), 2)
+    )
 
     return (
         formatted.strip(),
-        word_match.group(1).strip() if word_match else "N/A",
-        meaning_match.group(1).strip() if meaning_match else "N/A"
+        word.group(1).strip(),
+        meaning.group(1).strip()
     )
 
-# ================== STYLING ==================
+# ================== STYLES ==================
 st.markdown("""
 <style>
 .logo {
@@ -113,100 +105,15 @@ st.markdown(
 st.markdown("""
 <div style="text-align:center;">
     <h1 style="margin-bottom:0.2rem;">Word Giggles 🔤 🤭</h1>
-    <p style="margin-top:0; font-size:1.05rem;">
-        Enter a word and we will generate a funny and catchy joke for children to easily remember the word!
+    <p style="margin-top:0;">
+        Enter a word and we will generate a funny joke to help children remember it!
     </p>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("---")
 
-# ================== OUTPUT CONTAINER ==================
-output_container = st.container()
-
-# ================== JOKE GENERATOR ==================
-def generate_joke(source=None):
-    word = st.session_state.get("word_input", "").strip().lower()
-
-    # ---- HARD LOCK ----
-    if st.session_state.is_generating:
-        return
-
-    if not word or word == st.session_state.last_word:
-        return
-
-    st.session_state.is_generating = True
-    st.session_state.last_word = word
-
-    prompt = f"""You are a creative children's joke writer.
-Create one simple, short, and funny joke that helps children learn a new English word.
-
-Requirements:
-Use easy vocabulary suitable for children
-The joke must be short, catchy, and memorable
-Clearly highlight or repeat the new English word in a natural way
-Keep the humor friendly and age-appropriate
-Meaning in one simple sentence
-No asterisks (*) in the answer allowed
-The word is {word}.
-Block any bad or inappropriate words immediately
-No parentheses allowed
-Please follow the instructions exactly
-Output format:
-
-New Word: {word}
-
-Meaning:
-
-Joke:"""
-
-    with output_container:
-        with st.spinner(f"Creating a joke for **{word}**..."):
-            try:
-                response = client.responses.create(
-                    model="openai/gpt-oss-120b",
-                    input=prompt
-                )
-                text = response.output_text
-                joke, new_word, meaning = parse_and_format_response(text)
-            except Exception as e:
-                st.error(f"AI Error: {e}")
-                st.session_state.is_generating = False
-                return
-
-        if new_word == "N/A":
-            st.error("Inappropriate or invalid response detected.")
-            st.session_state.is_generating = False
-            return
-
-        st.subheader(f"✨ Word: {new_word.capitalize()}")
-        st.markdown(f"**Meaning:** {meaning}")
-        st.markdown("---")
-        st.markdown("**Your Learning Joke:**")
-        st.markdown(f"```text\n{joke}")
-
-        gif_url = fetch_gif(new_word)
-        if gif_url:
-            st.markdown(
-                f"""
-                <img src="{gif_url}" style="
-                    width:100%;
-                    max-width:400px;
-                    height:250px;
-                    object-fit:cover;
-                    border-radius:12px;
-                    display:block;
-                    margin:auto;
-                ">
-                """,
-                unsafe_allow_html=True
-            )
-        else:
-            st.info("No GIF found for this word.")
-
-    st.session_state.is_generating = False
-
-# ================== INPUT + CENTERED BUTTON ==================
+# ================== INPUT AREA (ALWAYS TOP) ==================
 col1, col2, col3 = st.columns([1, 2, 1])
 
 with col2:
@@ -225,3 +132,65 @@ with col2:
     )
 
 st.markdown("---")
+
+# ================== OUTPUT CONTAINER (ALWAYS BELOW INPUT) ==================
+output_container = st.container()
+
+# ================== GENERATOR ==================
+def generate_joke(source=None):
+    word = st.session_state.get("word_input", "").strip().lower()
+
+    if st.session_state.is_generating:
+        return
+
+    if not word or word == st.session_state.last_word:
+        return
+
+    st.session_state.is_generating = True
+    st.session_state.last_word = word
+
+    prompt = f"""You are a creative children's joke writer.
+
+New Word: {word}
+Meaning:
+Joke:"""
+
+    with output_container:
+        st.empty()  # clears previous output safely
+
+        with st.spinner(f"Creating a joke for **{word}**..."):
+            response = client.responses.create(
+                model="openai/gpt-oss-120b",
+                input=prompt
+            )
+
+        joke, new_word, meaning = parse_and_format_response(response.output_text)
+
+        if not new_word:
+            st.error("Invalid response.")
+            st.session_state.is_generating = False
+            return
+
+        st.subheader(f"✨ Word: {new_word.capitalize()}")
+        st.markdown(f"**Meaning:** {meaning}")
+        st.markdown("**Your Learning Joke:**")
+        st.markdown(f"```text\n{joke}")
+
+        gif = fetch_gif(new_word)
+        if gif:
+            st.markdown(
+                f"""
+                <img src="{gif}" style="
+                    width:100%;
+                    max-width:400px;
+                    height:250px;
+                    object-fit:cover;
+                    border-radius:12px;
+                    display:block;
+                    margin:auto;
+                ">
+                """,
+                unsafe_allow_html=True
+            )
+
+    st.session_state.is_generating = False
