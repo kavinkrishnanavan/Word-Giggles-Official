@@ -9,9 +9,6 @@ import base64
 if "is_generating" not in st.session_state:
     st.session_state.is_generating = False
 
-if "last_word" not in st.session_state:
-    st.session_state.last_word = ""
-
 # ================== PAGE SETUP ==================
 im = Image.open("logo.png")
 st.set_page_config(
@@ -61,30 +58,21 @@ def parse_and_format_response(text):
     word = re.search(r"New Word:\s*(.*)", text)
     meaning = re.search(r"Meaning:\s*(.*)", text)
 
-    if not joke:
+    if not joke or not word or not meaning:
         return None, None, None
 
     parts = [s for s in re.split(r'([.!?])', joke.group(1)) if s.strip()]
-    formatted = "".join(
-        parts[i] + (parts[i + 1] if i + 1 < len(parts) else "") + "\n"
-        for i in range(0, len(parts), 2)
-    )
+    formatted = ""
+    for i in range(0, len(parts), 2):
+        formatted += parts[i] + (parts[i + 1] if i + 1 < len(parts) else "") + "\n"
 
-    return (
-        formatted.strip(),
-        word.group(1).strip(),
-        meaning.group(1).strip()
-    )
+    return formatted.strip(), word.group(1).strip(), meaning.group(1).strip()
 
 # ================== STYLES ==================
 st.markdown("""
 <style>
 .logo {
     border-radius: 15px;
-    transition: transform 0.3s ease;
-}
-.logo:hover {
-    transform: scale(1.05);
 }
 .center {
     text-align: center;
@@ -96,7 +84,7 @@ st.markdown("""
 st.markdown(
     f"""
     <div class="center">
-        <img src="data:image/png;base64,{logo_base64}" class="logo" width="200">
+        <img src="data:image/png;base64,{logo_base64}" width="200">
     </div>
     """,
     unsafe_allow_html=True
@@ -104,70 +92,53 @@ st.markdown(
 
 st.markdown("""
 <div style="text-align:center;">
-    <h1 style="margin-bottom:0.2rem;">Word Giggles 🔤 🤭</h1>
-    <p style="margin-top:0;">
-        Enter a word and we will generate a funny joke to help children remember it!
-    </p>
+    <h1>Word Giggles 🔤 🤭</h1>
+    <p>Enter a word and get a funny learning joke!</p>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("---")
 
-# ================== INPUT AREA (ALWAYS TOP) ==================
-col1, col2, col3 = st.columns([1, 2, 1])
-
-with col2:
-    st.text_input(
-        "Enter a word",
-        placeholder="e.g., Enormous",
-        label_visibility="collapsed",
-        key="word_input",
-        on_change=lambda: generate_joke("enter")
-    )
-
-    st.button(
-        "Make",
-        use_container_width=True,
-        on_click=lambda: generate_joke("button")
-    )
-
-st.markdown("---")
-
-# ================== OUTPUT CONTAINER (ALWAYS BELOW INPUT) ==================
+# ================== OUTPUT CONTAINER (FIXED POSITION) ==================
 output_container = st.container()
 
 # ================== GENERATOR ==================
 def generate_joke(source=None):
-    word = st.session_state.get("word_input", "").strip().lower()
-
     if st.session_state.is_generating:
         return
 
-    if not word or word == st.session_state.last_word:
+    word = st.session_state.get("word_input", "").strip()
+    if not word:
         return
 
     st.session_state.is_generating = True
-    st.session_state.last_word = word
 
     prompt = f"""You are a creative children's joke writer.
 
 New Word: {word}
+
 Meaning:
+
 Joke:"""
 
     with output_container:
-        st.empty()  # clears previous output safely
+        st.empty()
 
         with st.spinner(f"Creating a joke for **{word}**..."):
-            response = client.responses.create(
-                model="openai/gpt-oss-120b",
-                input=prompt
-            )
+            try:
+                response = client.responses.create(
+                    model="openai/gpt-oss-120b",
+                    input=prompt
+                )
+            except Exception as e:
+                st.error(f"AI Error: {e}")
+                st.session_state.is_generating = False
+                return
 
         joke, new_word, meaning = parse_and_format_response(response.output_text)
 
         if not new_word:
-            st.error("Invalid response.")
+            st.error("Invalid response from AI.")
             st.session_state.is_generating = False
             return
 
@@ -194,3 +165,23 @@ Joke:"""
             )
 
     st.session_state.is_generating = False
+
+# ================== INPUT AREA (ALWAYS TOP) ==================
+col1, col2, col3 = st.columns([1, 2, 1])
+
+with col2:
+    st.text_input(
+        "Enter a word",
+        placeholder="e.g., Enormous",
+        label_visibility="collapsed",
+        key="word_input",
+        on_change=lambda: generate_joke("enter")
+    )
+
+    st.button(
+        "Make",
+        use_container_width=True,
+        on_click=lambda: generate_joke("button")
+    )
+
+st.markdown("---")
