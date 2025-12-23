@@ -132,15 +132,30 @@ st.markdown("---")
 output_container = st.container()
 
 # ---------------- Joke Generator ----------------
-def generate_joke():
-    word = st.session_state.get("word_input", "").strip()
+def generate_joke(source=None):
+    word = st.session_state.get("word_input", "").strip().lower()
 
-    if not word:
-        with output_container:
-            st.warning("Please enter a word.")
+    # ---- HARD LOCK ----
+    if st.session_state.is_generating:
         return
 
-    prompt = f"""You are a creative children's joke writer.
+    # Prevent duplicate generation for same word
+    if word == st.session_state.last_word:
+        return
+
+    if not word:
+        return
+
+    # Engage lock
+    st.session_state.is_generating = True
+    st.session_state.last_word = word
+
+    with output_container:
+        with st.spinner(f"Creating a joke for **{word}**..."):
+            try:
+                response = client.responses.create(
+                    model="openai/gpt-oss-120b",
+                    input=prompt := f"""You are a creative children's joke writer.
 Create one simple, short, and funny joke that helps children learn a new English word.
 
 Requirements:
@@ -161,29 +176,24 @@ New Word: {word}
 Meaning:
 
 Joke:"""
-
-    with output_container:
-        with st.spinner(f"Creating a joke for **{word}**..."):
-            try:
-                response = client.responses.create(
-                    model="openai/gpt-oss-120b",
-                    input=prompt
                 )
                 text = response.output_text
                 joke, new_word, meaning = parse_and_format_response(text)
             except Exception as e:
                 st.error(f"AI Error: {e}")
+                st.session_state.is_generating = False
                 return
 
         if new_word == "N/A":
             st.error("Inappropriate or invalid response detected.")
+            st.session_state.is_generating = False
             return
 
         st.subheader(f"✨ Word: {new_word.capitalize()}")
         st.markdown(f"**Meaning:** {meaning}")
         st.markdown("---")
         st.markdown("**Your Learning Joke:**")
-        st.markdown(f"```text\n{joke}  ")
+        st.markdown(f"```text\n{joke}")
 
         gif_url = fetch_gif(new_word)
         if gif_url:
@@ -201,5 +211,7 @@ Joke:"""
                 """,
                 unsafe_allow_html=True
             )
-        else:
-            st.info("No GIF found for this word.")
+
+    # ---- RELEASE LOCK ----
+    st.session_state.is_generating = False
+
