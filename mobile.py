@@ -5,7 +5,14 @@ import requests
 import re
 import base64
 
-# ---------------- Page Setup ----------------
+# ================== SESSION STATE LOCKS ==================
+if "is_generating" not in st.session_state:
+    st.session_state.is_generating = False
+
+if "last_word" not in st.session_state:
+    st.session_state.last_word = ""
+
+# ================== PAGE SETUP ==================
 im = Image.open("logo.png")
 st.set_page_config(
     page_title="Word Giggles",
@@ -14,9 +21,9 @@ st.set_page_config(
 )
 
 logo_bytes = open("logo.png", "rb").read()
-logo_base64 = base64. b64encode(logo_bytes).decode()
+logo_base64 = base64.b64encode(logo_bytes).decode()
 
-# ---------------- Initialize Groq Client ----------------
+# ================== INIT GROQ CLIENT ==================
 try:
     client = OpenAI(
         api_key=st.secrets["GROQ"],
@@ -24,8 +31,9 @@ try:
     )
 except Exception as e:
     st.error(f"Error initializing AI Client: {e}")
+    st.stop()
 
-# ---------------- GIPHY Function ----------------
+# ================== GIPHY FUNCTION ==================
 def fetch_gif(word):
     if word == "N/A":
         return None
@@ -35,13 +43,16 @@ def fetch_gif(word):
         return None
 
     try:
-        params = {
-            "api_key": GIPHY_API_KEY,
-            "q": word,
-            "limit": 1,
-            "rating": "g"
-        }
-        r = requests.get("https://api.giphy.com/v1/gifs/search", params=params)
+        r = requests.get(
+            "https://api.giphy.com/v1/gifs/search",
+            params={
+                "api_key": GIPHY_API_KEY,
+                "q": word,
+                "limit": 1,
+                "rating": "g"
+            },
+            timeout=5
+        )
         r.raise_for_status()
         data = r.json()
         if data["data"]:
@@ -51,22 +62,21 @@ def fetch_gif(word):
 
     return None
 
-# ---------------- Response Parser ----------------
+# ================== RESPONSE PARSER ==================
 def parse_and_format_response(text):
     joke_match = re.search(r"Joke:\s*(.*)", text, re.DOTALL)
     word_match = re.search(r"New Word:\s*(.*)", text)
     meaning_match = re.search(r"Meaning:\s*(.*)", text)
 
-
     if not joke_match:
         return text, "N/A", "N/A"
 
     joke_raw = joke_match.group(1).strip()
-    sentences = [s.strip() for s in re.split(r'([.!?])\s*', joke_raw) if s.strip()]
+    parts = [s for s in re.split(r'([.!?])', joke_raw) if s.strip()]
 
     formatted = ""
-    for i in range(0, len(sentences), 2):
-        formatted += sentences[i] + (sentences[i + 1] if i + 1 < len(sentences) else "") + "\n"
+    for i in range(0, len(parts), 2):
+        formatted += parts[i] + (parts[i + 1] if i + 1 < len(parts) else "") + "\n"
 
     return (
         formatted.strip(),
@@ -74,7 +84,7 @@ def parse_and_format_response(text):
         meaning_match.group(1).strip() if meaning_match else "N/A"
     )
 
-# ---------------- Styling ----------------
+# ================== STYLING ==================
 st.markdown("""
 <style>
 .logo {
@@ -90,7 +100,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- Header ----------------
+# ================== HEADER ==================
 st.markdown(
     f"""
     <div class="center">
@@ -111,27 +121,10 @@ st.markdown("""
 
 st.markdown("---")
 
-# ---------------- Input ----------------
-st.text_input(
-    "Enter a word",
-    placeholder="e.g., Enormous",
-    label_visibility="collapsed",
-    key="word_input",
-    on_change=lambda: generate_joke()
-)
-
-col1, col2, col3 = st.columns([1, 2, 1])
-
-with col2:
-    st.button("Make", on_click=lambda: generate_joke(), use_container_width=True)
-
-
-st.markdown("---")
-
-# ---------------- Output Container ----------------
+# ================== OUTPUT CONTAINER ==================
 output_container = st.container()
 
-# ---------------- Joke Generator ----------------
+# ================== JOKE GENERATOR ==================
 def generate_joke(source=None):
     word = st.session_state.get("word_input", "").strip().lower()
 
@@ -139,23 +132,13 @@ def generate_joke(source=None):
     if st.session_state.is_generating:
         return
 
-    # Prevent duplicate generation for same word
-    if word == st.session_state.last_word:
+    if not word or word == st.session_state.last_word:
         return
 
-    if not word:
-        return
-
-    # Engage lock
     st.session_state.is_generating = True
     st.session_state.last_word = word
 
-    with output_container:
-        with st.spinner(f"Creating a joke for **{word}**..."):
-            try:
-                response = client.responses.create(
-                    model="openai/gpt-oss-120b",
-                    input= f"""You are a creative children's joke writer.
+    prompt = f"""You are a creative children's joke writer.
 Create one simple, short, and funny joke that helps children learn a new English word.
 
 Requirements:
@@ -176,6 +159,13 @@ New Word: {word}
 Meaning:
 
 Joke:"""
+
+    with output_container:
+        with st.spinner(f"Creating a joke for **{word}**..."):
+            try:
+                response = client.responses.create(
+                    model="openai/gpt-oss-120b",
+                    input=prompt
                 )
                 text = response.output_text
                 joke, new_word, meaning = parse_and_format_response(text)
@@ -211,7 +201,27 @@ Joke:"""
                 """,
                 unsafe_allow_html=True
             )
+        else:
+            st.info("No GIF found for this word.")
 
-    # ---- RELEASE LOCK ----
     st.session_state.is_generating = False
 
+# ================== INPUT + CENTERED BUTTON ==================
+col1, col2, col3 = st.columns([1, 2, 1])
+
+with col2:
+    st.text_input(
+        "Enter a word",
+        placeholder="e.g., Enormous",
+        label_visibility="collapsed",
+        key="word_input",
+        on_change=lambda: generate_joke("enter")
+    )
+
+    st.button(
+        "Make",
+        use_container_width=True,
+        on_click=lambda: generate_joke("button")
+    )
+
+st.markdown("---")
