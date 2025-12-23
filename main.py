@@ -110,6 +110,7 @@ with input_container:
             
             st.button("Make", key="generate_joke_button", on_click=lambda: generate_joke())
 
+
 # --- Output container (reserved below input) ---
 output_container = st.container()
 
@@ -143,19 +144,7 @@ Meaning:
 
 Joke:"""
 
-    def spinnercalling():
-        with st.spinner(f"Generating a joke for **{word_input}**..."):
-            try:
-                response = client.responses.create(
-                    input=query,
-                    model="openai/gpt-oss-120b"
-                )
-                full_output = response.output_text
-                formatted_joke, new_word, meaning = parse_and_format_response(full_output)
-            except Exception as e:
-                st.error(f"An error occurred during AI generation! Error: {e}")
-                return
-    spinnercalling()
+
 
     with output_container:
         # Display results
@@ -184,8 +173,22 @@ Joke:"""
                         """,
                         unsafe_allow_html=True
                     )
+                    
                 else:
                     st.info(f"Sorry, no GIF found for '{new_word}'.")
+            def spinnercalling():
+                with st.spinner(f"Generating a joke for **{word_input}**..."):
+                    try:
+                        response = client.responses.create(
+                            input=query,
+                            model="openai/gpt-oss-120b"
+                        )
+                        full_output = response.output_text
+                        formatted_joke, new_word, meaning = parse_and_format_response(full_output)
+                    except Exception as e:
+                        st.error(f"An error occurred during AI generation! Error: {e}")
+                        return
+            spinnercalling()
 
 
 
