@@ -123,7 +123,7 @@ st.text_input(
 col1, col2, col3 = st.columns([1, 2, 1])
 
 with col2:
-    st.button("Make", on_click=generate_joke, use_container_width=True)
+    st.button("Make", on_click=lambda: generate_joke(), use_container_width=True)
 
 
 st.markdown("---")
